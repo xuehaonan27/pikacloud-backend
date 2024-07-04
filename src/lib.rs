@@ -1,8 +1,10 @@
 pub mod auth;
 pub mod clouds;
 pub mod db;
+pub mod cache;
 pub mod error;
 pub mod models;
+pub mod schema;
 pub mod routes;
 pub mod middleware;
 pub mod server;

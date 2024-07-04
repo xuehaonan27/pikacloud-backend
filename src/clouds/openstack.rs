@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::RedisClient, models::CloudCreateInfo, utils::load_env_panic};
+use crate::{cache::RedisClient, models::CloudCreateInfo, utils::load_env_panic};
 
 use super::{BaseCloudProvider, CloudError};
 

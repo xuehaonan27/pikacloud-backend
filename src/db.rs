@@ -13,8 +13,6 @@ pub enum DBError {
     Url(#[from] std::env::VarError),
     #[error("Fail to get field `{0}`")]
     Field(String),
-    #[error("Redis failure: {0}")]
-    Redis(#[from] RedisError),
 }
 
 pub type DBResult<T> = std::result::Result<T, DBError>;
@@ -123,27 +121,5 @@ impl<'a> RoleTable<'a> {
         value: Vec<T>,
     ) -> DBResult<Vec<Role>> {
         todo!()
-    }
-}
-
-#[derive(Clone)]
-pub struct RedisClient {
-    conn: MultiplexedConnection,
-}
-
-impl RedisClient {
-    pub async fn new(redis_url: &String) -> DBResult<Self> {
-        let client = redis::Client::open(redis_url.as_str())?;
-        let conn = client.get_multiplexed_tokio_connection().await?;
-        Ok(Self { conn })
-    }
-
-    pub async fn get(&mut self, key: &str) -> Option<String> {
-        self.conn.get(key).await.unwrap_or(None)
-    }
-
-    pub async fn set(&mut self, key: &str, value: &str, expiration: u64) -> DBResult<()> {
-        let _: () = self.conn.set_ex(key, value, expiration).await?;
-        Ok(())
     }
 }

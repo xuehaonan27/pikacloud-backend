@@ -6,8 +6,9 @@ use tokio::sync::Mutex;
 
 use crate::{
     auth::{iaaa::IaaaAuthProvider, password::PasswordAuthProvider, BaseAuthProvider},
+    cache::RedisClient,
     clouds::{openstack::OpenStackCloudProvider, BaseCloudProvider},
-    db::{DBClient, RedisClient},
+    db::DBClient,
     middleware::api_user_auth::ApiUserAuth,
     routes::api_routes,
     utils::{load_env_optional, load_env_panic},

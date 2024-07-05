@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use std::io::Write;
 
 use chrono::NaiveDateTime;
@@ -71,7 +72,7 @@ impl FromSql<CloudProviderType, Pg> for CloudProvider {
     }
 }
 
-#[derive(Debug, PartialEq, Insertable, Queryable, Identifiable, Selectable, AsChangeset)]
+#[derive(Debug, PartialEq,Queryable, Identifiable, Selectable, AsChangeset)]
 #[diesel(table_name = crate::schema::User)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
@@ -85,17 +86,23 @@ pub struct User {
     pub updatedAt: NaiveDateTime,
 }
 
-// #[derive(Serialize, Deserialize, Debug, sqlx::FromRow)]
-// pub struct NewUser {
-//     pub username: String,
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::User)]
+pub struct PasswordNewUser {
+    pub username: String,
+    pub loginProvider: LoginProvider,
+    pub password: Option<String>,
+}
 
-//     #[serde(rename = "loginProvider")]
-//     pub login_provider: LoginProvider,
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::User)]
+pub struct IaaaNewUser {
+    pub username: String,
+    pub loginProvider: LoginProvider,
+    pub name: Option<String>,
+}
 
-//     pub password: Option<String>,
-// }
-
-#[derive(Debug, PartialEq, Insertable, Queryable, Identifiable, Selectable, AsChangeset)]
+#[derive(Debug, PartialEq,  Queryable, Identifiable, Selectable, AsChangeset)]
 #[diesel(table_name = crate::schema::Role)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Role {
@@ -105,7 +112,13 @@ pub struct Role {
     pub updatedAt: NaiveDateTime,
 }
 
-#[derive(Debug, PartialEq, Insertable, Queryable, Identifiable, Associations, AsChangeset)]
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::Role)]
+pub struct IaaaNewRole {
+    pub name: String,
+}
+
+#[derive(Debug, PartialEq, Queryable, Identifiable, Selectable, Associations, AsChangeset)]
 #[belongs_to(User, foreign_key = "userId")]
 #[belongs_to(Role, foreign_key = "roleId")]
 #[diesel(table_name = crate::schema::UserRole)]
@@ -118,7 +131,7 @@ pub struct UserRole {
     pub updatedAt: NaiveDateTime,
 }
 
-#[derive(Debug, PartialEq, Insertable, Queryable, Identifiable, Associations, AsChangeset)]
+#[derive(Debug, PartialEq,  Queryable, Identifiable, Selectable, Associations, AsChangeset)]
 #[belongs_to(User, foreign_key = "userId")]
 #[diesel(table_name = crate::schema::CloudUser)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -130,6 +143,13 @@ pub struct CloudUser {
     pub cloudPassword: String,
     pub createdAt: NaiveDateTime,
     pub updatedAt: NaiveDateTime,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::UserRole)]
+pub struct NewUserRole {
+    pub userId: String,
+    pub roleId: String,
 }
 
 // #[derive(Serialize, Deserialize, Debug, sqlx::FromRow, sqlx::Type)]
@@ -170,7 +190,7 @@ pub struct CloudUser {
 //     pub updated_at: DateTime<Utc>,
 // }
 
-#[derive(Serialize, Deserialize, Debug, sqlx::FromRow, sqlx::Type)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CloudCreateInfo {
     #[serde(rename = "providerId")]
     pub provider_id: String,

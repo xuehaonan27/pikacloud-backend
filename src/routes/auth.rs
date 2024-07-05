@@ -1,7 +1,7 @@
 //! Authentication routes
 
 use actix_session::Session;
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::{models::UserJwtInfo, server::AppState};
@@ -51,14 +51,17 @@ async fn get_auth_providers_handler(data: web::Data<AppState>) -> HttpResponse {
 
 async fn login_handler(
     data: web::Data<AppState>,
+    request: HttpRequest,
     req: web::Json<LoginRequest>,
     session: Session,
 ) -> HttpResponse {
     let mut auth_providers = data.auth_providers.lock().await;
     let provider = req.provider.clone();
 
+    let ip_address = request.peer_addr().map(|addr| addr.ip().to_string());
+
     if let Some(auth_provider) = auth_providers.iter_mut().find(|p| p.name() == provider) {
-        match auth_provider.login(req.payload.clone()).await {
+        match auth_provider.login(req.payload.clone(), ip_address).await {
             Ok((user_id, roles)) => {
                 let user_info = UserJwtInfo { id: user_id, roles };
                 session.insert("user_info", &user_info).unwrap();
@@ -98,18 +101,21 @@ async fn register_handler(
 async fn oauth_callback_handler(
     data: web::Data<AppState>,
     provider: web::Path<String>,
+    request: HttpRequest,
     query: web::Query<OAuthQuery>,
     session: Session,
 ) -> HttpResponse {
     let mut auth_providers = data.auth_providers.lock().await;
     let provider_name = provider.into_inner();
 
+    let ip_address = request.peer_addr().map(|addr| addr.ip().to_string());
+
     if let Some(auth_provider) = auth_providers
         .iter_mut()
         .find(|p| p.name() == provider_name)
     {
         match auth_provider
-            .login(serde_json::json!({ "token": query.code.clone() }))
+            .login(serde_json::json!({ "token": query.code.clone() }), ip_address)
             .await
         {
             Ok((user_id, roles)) => {

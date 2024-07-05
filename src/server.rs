@@ -38,12 +38,13 @@ pub async fn server() -> io::Result<()> {
         log::warn!("Trust proxy is enabled");
     }
     let redis_client = RedisClient::new(&config.redis_url).await.unwrap();
-    let db_client = DBClient::connect(&config.database_url).await.unwrap();
+    let db_client = DBClient::connect(&config.database_url).unwrap();
+
     let auth_providers = load_auth_providers(&config.auth_providers, db_client.clone()).await;
     let cloud_providers = load_cloud_providers(&config.cloud_providers, redis_client.clone()).await;
 
     let cache = Arc::new(Mutex::new(redis_client));
-    let db = Arc::new(Mutex::new(db_client));
+    let db = Arc::new(Mutex::new(db_client.clone()));
     let auth_providers = Arc::new(Mutex::new(auth_providers));
     let cloud_providers = Arc::new(Mutex::new(cloud_providers));
 

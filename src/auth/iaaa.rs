@@ -3,15 +3,15 @@ use std::env;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::{auth::AuthError, db::DBClient};
+use crate::{auth::{AuthError, get_result_from_resp}, db::DBClient};
 
-use super::{password::PasswordAuthProvider, AuthResult, BaseAuthProvider};
+use super::BaseAuthProvider;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct IAAAUserInfo {
     // example 'Tom'
     #[serde(rename = "name")]
-    name: String,
+    pub name: String,
 
     // example: 'Kaitong'
     #[serde(rename = "status")]
@@ -19,7 +19,7 @@ pub struct IAAAUserInfo {
 
     // example: '2200088888'
     #[serde(rename = "identityId")]
-    identity_id: String,
+    pub identity_id: String,
 
     // example: '00048'
     #[serde(rename = "deptId")]
@@ -55,7 +55,7 @@ pub struct IAAAValidateResponse {
     #[serde(rename = "errMsg")]
     err_msg: String,
     #[serde(rename = "userInfo")]
-    user_info: IAAAUserInfo,
+    pub user_info: IAAAUserInfo,
 }
 
 impl IAAAValidateResponse {
@@ -108,40 +108,7 @@ pub struct IaaaAuthProvider {
 
 #[async_trait]
 impl BaseAuthProvider for IaaaAuthProvider {
-    fn enable_mfa(&self) -> bool {
-        self.enable_mfa
-    }
-
-    fn name(&self) -> &'static str {
-        "iaaa"
-    }
-
-    /// Login with IAAA authentication
-    async fn login(
-        &mut self,
-        payload: serde_json::Value,
-    ) -> Result<(String, Vec<String>), AuthError> {
-        #[derive(Deserialize)]
-        struct LoginPayLoad {
-            token: String,
-        }
-
-        let login_payload: LoginPayLoad = serde_json::from_value(payload)
-            .map_err(|_| AuthError::BadRequest("Token is required".into()))?;
-
-        todo!()
-    }
-
-    async fn register(
-        &mut self,
-        payload: serde_json::Value,
-    ) -> Result<(String, Vec<String>), AuthError> {
-        unreachable!("IAAA should not call register!")
-    }
-}
-
-impl IaaaAuthProvider {
-    pub fn new(client: DBClient) -> Self {
+    fn new(client: DBClient) -> Self {
         let iaaa_id = env::var("IAAA_ID").expect("Must set IAAA_ID");
         let iaaa_key = env::var("IAAA_KEY").expect("Must set IAAA_KEY");
 
@@ -156,5 +123,54 @@ impl IaaaAuthProvider {
             client,
             enable_mfa,
         }
+    }
+
+    fn enable_mfa(&self) -> bool {
+        self.enable_mfa
+    }
+
+    fn name(&self) -> &'static str {
+        "iaaa"
+    }
+
+    /// Login with IAAA authentication
+    async fn login(
+        &mut self,
+        payload: serde_json::Value,
+        ip_address: Option<String>,
+    ) -> Result<(String, Vec<String>), AuthError> {
+        // Get connection to database
+        let conn = &mut self.client.get_conn()?;
+
+        #[derive(Deserialize)]
+        struct LoginPayLoad {
+            token: String,
+        }
+
+        let LoginPayLoad { token } = serde_json::from_value(payload)
+            .map_err(|_| AuthError::BadRequest("Token is required".into()))?;
+
+        let ip_address = ip_address.ok_or(AuthError::Unauthorized("No ip address".into()))?;
+        let resp = validate(
+            ip_address,
+            self.iaaa_id.clone(),
+            self.iaaa_key.clone(),
+            token,
+        )
+        .await
+        .map_err(|_| AuthError::Unauthorized("Fail to validate".into()))?;
+
+        if !resp.is_success() {
+            return Err(AuthError::Unauthorized("Fail to authorize".into()));
+        }
+
+        get_result_from_resp(conn, resp).await
+    }
+
+    async fn register(
+        &mut self,
+        _payload: serde_json::Value,
+    ) -> Result<(String, Vec<String>), AuthError> {
+        unreachable!("IAAA should not call register!")
     }
 }
